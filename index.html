@@ -923,8 +923,8 @@ kbd {
 }
 
 </style>
-<meta name="description" content="零依赖的葡语背单词工具：自己录入词库，按分组背诵，支持选择、拼写和动词变位测验。数据只存在本机浏览器，不联网、不上传。">
-<meta name="keywords" content="葡语, 葡萄牙语, 单词本, 背单词, 词汇, 动词变位, vocabulário, português, vocabulary">
+<meta name="description" content="零依赖的葡语背单词工具：自己录入词库，可记录名词阴阳性，按分组背诵，支持选择、拼写和动词变位测验。数据只存在本机浏览器，不联网、不上传。">
+<meta name="keywords" content="葡语, 葡萄牙语, 单词本, 背单词, 词汇, 动词变位, 名词阴阳性, vocabulário, português, vocabulary">
 <meta name="author" content="portuguese-vocab">
 <meta name="theme-color" content="#0d7a63" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)">
@@ -933,11 +933,11 @@ kbd {
 <link rel="manifest" href="manifest.webmanifest">
 <meta property="og:type" content="website">
 <meta property="og:title" content="葡语单词本 · Vocabulário">
-<meta property="og:description" content="自己录入的葡语词库：分组背诵、选择 / 拼写 / 动词变位测验。数据只存在本地浏览器。">
+<meta property="og:description" content="自己录入的葡语词库：名词阴阳性、分组背诵、选择 / 拼写 / 动词变位测验。数据只存在本地浏览器。">
 <meta property="og:image" content="favicon.svg">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="葡语单词本 · Vocabulário">
-<meta name="twitter:description" content="自己录入的葡语词库：分组背诵、选择 / 拼写 / 动词变位测验。数据只存在本地浏览器。">
+<meta name="twitter:description" content="自己录入的葡语词库：名词阴阳性、分组背诵、选择 / 拼写 / 动词变位测验。数据只存在本地浏览器。">
 </head>
 <body>
 <div class="app">
@@ -1178,6 +1178,8 @@ kbd {
         ? w.meanings.map(x => String(x).trim()).filter(Boolean)
         : splitList(w.meanings),
       pos: POS_LABEL[w.pos] ? w.pos : 'other',
+      masc: String(w.masc || '').trim(),
+      fem: String(w.fem || '').trim(),
       groupId: w.groupId ? String(w.groupId) : null,
       conj,
       note: String(w.note || ''),
@@ -1485,6 +1487,7 @@ kbd {
           ${w.groupId ? `<span class="badge group">${esc(groupName(w.groupId))}</span>` : ''}
           ${w.box >= 4 ? '<span class="badge">已掌握</span>' : ''}
         </div>
+        ${nounFormsHTML(w)}
         ${conjTableHTML(w)}
         ${w.note ? `<div class="note">${esc(w.note)}</div>` : ''}
       </div>`;
@@ -1510,6 +1513,17 @@ kbd {
             <button class="btn primary lg" type="button" data-act="reveal">显示答案 <kbd style="background:transparent;border-color:currentColor;color:inherit;opacity:.7">空格</kbd></button>
           </div>`}
     </div>`;
+  }
+
+  function nounFormsHTML(w) {
+    if (w.pos !== 'noun') return '';
+    const rows = [];
+    if (w.masc) rows.push({ label: '阳性 (m.)', value: w.masc });
+    if (w.fem) rows.push({ label: '阴性 (f.)', value: w.fem });
+    if (!rows.length) return '';
+    return `<div class="conj-table">${rows.map(r =>
+      `<div class="conj-row"><span class="conj-pron">${r.label}</span><span class="conj-form">${esc(r.value)}</span></div>`
+    ).join('')}</div>`;
   }
 
   function conjTableHTML(w) {
@@ -2104,6 +2118,8 @@ kbd {
         const hay = normText([
           w.term,
           w.meanings.join(' '),
+          w.masc,
+          w.fem,
           w.note,
           groupName(w.groupId),
           Object.keys(w.conj).map(k => w.conj[k]).join(' ')
@@ -2128,7 +2144,7 @@ kbd {
       <div class="lib-toolbar">
         <div class="search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input class="input" id="libSearch" type="search" placeholder="搜索单词、释义、变位…" value="${esc(ui.lib.q)}" autocomplete="off">
+          <input class="input" id="libSearch" type="search" placeholder="搜索单词、释义、变位、阴阳性…" value="${esc(ui.lib.q)}" autocomplete="off">
         </div>
         <select class="input" id="libGroup">${groupFilterHTML(ui.lib.group)}</select>
         <select class="input" id="libPos">
@@ -2198,6 +2214,12 @@ kbd {
     host.innerHTML = `<div class="word-list">${list.map(w => {
       const posClass = POS_CLASS[w.pos] || 'pos-other';
       const conj = w.pos === 'verb' ? PRONOUNS.filter(p => w.conj[p.key]) : [];
+      const forms = w.pos === 'noun'
+        ? [
+            w.masc ? `阳性 <b>${esc(w.masc)}</b>` : '',
+            w.fem ? `阴性 <b>${esc(w.fem)}</b>` : ''
+          ].filter(Boolean)
+        : [];
       return `<div class="word-row" data-id="${esc(w.id)}">
         <div class="word-body">
           <div class="word-line">
@@ -2207,6 +2229,7 @@ kbd {
             ${masteryDots(w)}
           </div>
           <div class="meanings">${w.meanings.map(esc).join(' <span class="slash">/</span> ')}</div>
+          ${forms.length ? `<div class="conj-mini gender-mini">${forms.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
           ${conj.length ? `<div class="conj-mini">${conj.map(p => `<span>${p.label} <b>${esc(w.conj[p.key])}</b></span>`).join('')}</div>` : ''}
           ${w.note ? `<div class="note">${esc(w.note)}</div>` : ''}
         </div>
@@ -2313,6 +2336,8 @@ kbd {
     const words = state.words.length;
     const verbs = state.words.filter(w => w.pos === 'verb').length;
     const conjCount = state.words.reduce((n, w) => n + PRONOUNS.filter(p => w.conj[p.key]).length, 0);
+    const nouns = state.words.filter(w => w.pos === 'noun').length;
+    const genderCount = state.words.reduce((n, w) => n + (w.masc ? 1 : 0) + (w.fem ? 1 : 0), 0);
     const mastered = state.words.filter(w => w.box >= 4).length;
 
     $('#view').innerHTML = `<div class="panel">
@@ -2324,7 +2349,9 @@ kbd {
         <div class="stat-box"><b>${words}</b><span>词汇 / 短语</span></div>
         <div class="stat-box"><b>${state.groups.length}</b><span>分组</span></div>
         <div class="stat-box"><b>${verbs}</b><span>动词</span></div>
+        <div class="stat-box"><b>${nouns}</b><span>名词</span></div>
         <div class="stat-box"><b>${conjCount}</b><span>已记录变位</span></div>
+        <div class="stat-box"><b>${genderCount}</b><span>阴阳性形式</span></div>
         <div class="stat-box"><b>${mastered}</b><span>已掌握</span></div>
         <div class="stat-box"><b>${state.words.filter(isDue).length}</b><span>待复习</span></div>
       </div>
@@ -2333,7 +2360,7 @@ kbd {
     <div class="data-grid" style="margin-top:16px">
       <div class="data-card">
         <h3>导出备份</h3>
-        <p>JSON 含词性、变位、分组和复习进度；CSV 方便在表格里查看。</p>
+        <p>JSON 含词性、变位、阴阳性、分组和复习进度；CSV 方便在表格里查看。</p>
         <div class="row">
           <button class="btn primary" type="button" data-act="export-json">导出 JSON</button>
           <button class="btn" type="button" data-act="export-csv">导出 CSV</button>
@@ -2358,6 +2385,7 @@ kbd {
           <li>释义之间只用 <b>/</b> 分隔：<b>casa / 房子 / 家</b></li>
           <li>批量添加时，每行写成 <b>葡语 / 释义 / 释义2</b></li>
           <li>动词可分别记录 <b>eu / tu / nós / você, ele, ela / vocês, eles, elas</b> 的变位</li>
+          <li>名词可记录<b>阳性</b>和<b>阴性</b>形式，例如 <b>professor / professora</b>（在添加或编辑时填写）</li>
           <li>换浏览器或清理浏览器数据后，词库不会自动跟着走，记得导出。</li>
         </ul>
       </div>
@@ -2404,11 +2432,13 @@ kbd {
   }
 
   function exportCSV() {
-    const header = ['term', 'meanings', 'pos', 'group', 'conj_eu', 'conj_tu', 'conj_nos', 'conj_voce', 'conj_voces', 'note', 'box', 'seen', 'right', 'wrong'];
+    const header = ['term', 'meanings', 'pos', 'masc', 'fem', 'group', 'conj_eu', 'conj_tu', 'conj_nos', 'conj_voce', 'conj_voces', 'note', 'box', 'seen', 'right', 'wrong'];
     const rows = state.words.map(w => [
       w.term,
       w.meanings.join(' / '),
       POS_LABEL[w.pos],
+      w.masc,
+      w.fem,
       groupName(w.groupId),
       w.conj.eu,
       w.conj.tu,
@@ -2502,7 +2532,7 @@ kbd {
 
   function openWordModal(id) {
     const editing = id ? wordById(id) : null;
-    const w = editing || { term: '', meanings: [], pos: 'noun', groupId: null, note: '', conj: {} };
+    const w = editing || { term: '', meanings: [], pos: 'noun', groupId: null, note: '', masc: '', fem: '', conj: {} };
     ui.editingId = editing ? editing.id : null;
 
     const conjFields = PRONOUNS.map(p =>
@@ -2513,7 +2543,7 @@ kbd {
     openModal(`<div class="modal-head">
       <div>
         <h2>${editing ? '编辑词条' : '添加词汇'}</h2>
-        <p>${editing ? '改完记得保存' : '释义用 / 分隔；动词可以填五个人称的变位'}</p>
+        <p>${editing ? '改完记得保存' : '释义用 / 分隔；动词填五个人称变位，名词填阴阳性'}</p>
       </div>
       <button class="modal-close" type="button" data-act="close-modal" aria-label="关闭">×</button>
     </div>
@@ -2527,6 +2557,20 @@ kbd {
           <div class="field">
             <label for="wfPos">词性 *</label>
             <select class="input" id="wfPos">${posOptionsHTML(w.pos)}</select>
+          </div>
+        </div>
+
+        <div class="conj-block" id="genderBlock"${w.pos === 'noun' ? '' : ' hidden'}>
+          <div class="cb-title">名词阴阳性 <span>可选，只填知道的即可</span></div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="wfMasc">阳性形式 (m.)</label>
+              <input class="input" id="wfMasc" value="${esc(w.masc || '')}" placeholder="professor" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="wfFem">阴性形式 (f.)</label>
+              <input class="input" id="wfFem" value="${esc(w.fem || '')}" placeholder="professora" autocomplete="off" spellcheck="false">
+            </div>
           </div>
         </div>
 
@@ -2565,9 +2609,11 @@ kbd {
 
     const posSel = $('#wfPos');
     const conjBlock = $('#conjBlock');
-    if (posSel && conjBlock) {
+    const genderBlock = $('#genderBlock');
+    if (posSel && conjBlock && genderBlock) {
       posSel.addEventListener('change', () => {
         conjBlock.hidden = posSel.value !== 'verb';
+        genderBlock.hidden = posSel.value !== 'noun';
         if (posSel.value === 'verb') {
           const first = conjBlock.querySelector('input');
           if (first && !first.value) first.focus({ preventScroll: true });
@@ -2606,10 +2652,13 @@ kbd {
       const el = $('#conj-' + p.key);
       conj[p.key] = el ? el.value.trim() : '';
     });
+    const pos = $('#wfPos') ? $('#wfPos').value : 'other';
     return {
       term: ($('#wfTerm') ? $('#wfTerm').value : '').trim(),
       meanings: splitList($('#wfMean') ? $('#wfMean').value : ''),
-      pos: $('#wfPos') ? $('#wfPos').value : 'other',
+      pos,
+      masc: pos === 'noun' && $('#wfMasc') ? $('#wfMasc').value.trim() : '',
+      fem: pos === 'noun' && $('#wfFem') ? $('#wfFem').value.trim() : '',
       groupId: ($('#wfGroup') ? $('#wfGroup').value : '') || null,
       note: ($('#wfNote') ? $('#wfNote').value : '').trim(),
       conj
@@ -2657,6 +2706,8 @@ kbd {
     $('#wfTerm').value = '';
     $('#wfMean').value = '';
     $('#wfNote').value = '';
+    if ($('#wfMasc')) $('#wfMasc').value = '';
+    if ($('#wfFem')) $('#wfFem').value = '';
     PRONOUNS.forEach(p => {
       const el = $('#conj-' + p.key);
       if (el) el.value = '';
